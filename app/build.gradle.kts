@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "com.roesch.jwsalgaffar"
-        minSdk = 31
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -47,6 +47,12 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+    applicationVariants.all {
+        outputs.all {
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            output.outputFileName = "jws-algaffar.apk"
+        }
+    }
 }
 
 dependencies {
@@ -58,7 +64,6 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    implementation(libs.generativeai)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.play.services.location)
     implementation(libs.play.services.maps)

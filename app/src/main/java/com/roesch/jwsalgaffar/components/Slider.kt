@@ -11,10 +11,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
-import java.lang.reflect.Modifier
+import androidx.compose.ui.Modifier
 
 @Composable
-fun Slider(kali: Int, label : String, data : Int) {
+fun Slider(kali: Int, label : String, modifier: Modifier = Modifier) {
 
     var sliderPosition by remember { mutableFloatStateOf(0f) }
     val dataSlider = sliderPosition*kali

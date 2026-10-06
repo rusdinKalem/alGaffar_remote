@@ -1,6 +1,9 @@
 package com.roesch.jwsalgaffar.screens
 
 import android.bluetooth.BluetoothSocket
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.compose.rememberNavController
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,8 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,22 +31,27 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.roesch.jwsalgaffar.components.JudulInfo
 import com.roesch.jwsalgaffar.components.TombolHome
-import com.roesch.jwsalgaffar.components.TombolIcon
 import com.roesch.jwsalgaffar.components.TombolKirim
-import java.io.OutputStream
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import android.widget.Toast
+
+import androidx.compose.ui.platform.LocalContext
+import com.roesch.jwsalgaffar.utils.PrefManager
 
 @Composable
 fun Screen07(
     navController: NavHostController,
-    bluetoothSocket: BluetoothSocket,
-    scrollState: ScrollState
+    bluetoothSocket: BluetoothSocket? = null,
+    scrollState: ScrollState = rememberScrollState()
 ) {
-    val bluetoothOutputStream: OutputStream = bluetoothSocket.outputStream
-    var input1 by remember { mutableStateOf("") }
-    var input2 by remember { mutableStateOf("") }
-    var input3 by remember { mutableStateOf("") }
-    var input4 by remember { mutableStateOf("") }
-    var input5 by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var input1 by remember { mutableStateOf(PrefManager.getString(context, "s7_run1", "")) }
+    var input2 by remember { mutableStateOf(PrefManager.getString(context, "s7_run2", "")) }
+    var input3 by remember { mutableStateOf(PrefManager.getString(context, "s7_run3", "")) }
+    var input4 by remember { mutableStateOf(PrefManager.getString(context, "s7_pra_sholat", "")) }
+    var input5 by remember { mutableStateOf(PrefManager.getString(context, "s7_pra_khutbah", "")) }
 
     val datas = listOf(
         "CN1$input1",
@@ -91,6 +97,7 @@ fun Screen07(
                             onValueChange = {
                                 if(it.length <= maxChar) {
                                     input1 = it
+                                    PrefManager.saveString(context, "s7_run1", it)
                                 }
                                             },
                             label = { Text("RUNTEXT1") },
@@ -122,6 +129,7 @@ fun Screen07(
                     onValueChange = {
                         if(it.length <= maxChar) {
                             input2 = it
+                            PrefManager.saveString(context, "s7_run2", it)
                         }
                     },
                     label = { Text("RUNTEXT2") },
@@ -153,6 +161,7 @@ fun Screen07(
                     onValueChange = {
                         if(it.length <= maxChar) {
                             input3 = it
+                            PrefManager.saveString(context, "s7_run3", it)
                         }
                     },
                     label = { Text("RUNTEXT3") },
@@ -184,6 +193,7 @@ fun Screen07(
                     onValueChange = {
                         if(it.length <= maxChar) {
                             input4 = it
+                            PrefManager.saveString(context, "s7_pra_sholat", it)
                         }
                     },
                     label = { Text("PRA-SHOLAT") },
@@ -216,6 +226,7 @@ fun Screen07(
                         onValueChange = {
                             if(it.length <= maxChar) {
                                 input5 = it
+                                PrefManager.saveString(context, "s7_pra_khutbah", it)
                             }
                         },
                         label = { Text("PRA-KHUTBAH") },
@@ -244,13 +255,13 @@ fun Screen07(
                     modifier = Modifier
                         .clickable(
                             onClick = {
-                                for(data in datas) {
-                                    val dataQ =
-                                        buildString {
-                                            append(data)
-                                            append("\n")
-                                        }
-                                    bluetoothOutputStream.write(dataQ.toByteArray())
+                                coroutineScope.launch {
+                                    val success = com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder.sendDataList(datas)
+                                    if (success) {
+                                        Toast.makeText(context, "Data Running Text berhasil dikirim!", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, "Gagal mengirim data. Pastikan Bluetooth terhubung!", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                             }
                         )
@@ -283,5 +294,12 @@ fun Screen07(
 
         }
     }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun Screen07Preview() {
+    val navController = rememberNavController()
+    Screen07(navController = navController)
 }
 

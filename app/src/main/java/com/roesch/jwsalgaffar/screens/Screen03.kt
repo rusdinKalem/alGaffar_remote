@@ -2,6 +2,10 @@ package com.roesch.jwsalgaffar.screens
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothSocket
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.compose.rememberNavController
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,7 +20,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -31,20 +34,29 @@ import androidx.navigation.NavHostController
 import com.roesch.jwsalgaffar.components.JudulInfo
 import com.roesch.jwsalgaffar.components.Picker
 import com.roesch.jwsalgaffar.components.TombolHome
-import com.roesch.jwsalgaffar.components.TombolIcon
-import java.io.OutputStream
+import com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 @SuppressLint("SimpleDateFormat")
 @Composable
-fun Screen03(navController: NavHostController, bluetoothSocket: BluetoothSocket) {
-    val bluetoothOutputStream: OutputStream = bluetoothSocket.outputStream
+fun Screen03(navController: NavHostController, bluetoothSocket: BluetoothSocket? = null) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
-    val calender = Calendar.getInstance().time
-    val dateFormat = SimpleDateFormat("ddMMyyHHmmss", Locale.getDefault()).format(calender)
-    val dayFormat = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
+    fun sendData(cmd: String) {
+        coroutineScope.launch {
+            val success = BluetoothConnectionHolder.sendData(cmd)
+            if (success) {
+                Toast.makeText(context, "Data Waktu dikirim!", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "Bluetooth tidak terhubung!", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     Column(
         Modifier
@@ -75,7 +87,12 @@ fun Screen03(navController: NavHostController, bluetoothSocket: BluetoothSocket)
                     Column(
                         modifier = Modifier
                             .clickable(
-                                onClick = {bluetoothOutputStream.write("SDT$dateFormat$dayFormat".toByteArray())}
+                                onClick = {
+                                    val now = Calendar.getInstance()
+                                    val dateStr = SimpleDateFormat("ddMMyyHHmmss", Locale.getDefault()).format(now.time)
+                                    val dayNum = now.get(Calendar.DAY_OF_WEEK)
+                                    sendData("SDT$dateStr$dayNum")
+                                }
                             )
                             .padding(horizontal = 10.dp)
                             .background(color = Color.LightGray, shape = RoundedCornerShape(12.dp))
@@ -117,4 +134,11 @@ fun Screen03(navController: NavHostController, bluetoothSocket: BluetoothSocket)
 
         }
     }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun Screen03Preview() {
+    val navController = rememberNavController()
+    Screen03(navController = navController)
 }

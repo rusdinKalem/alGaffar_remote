@@ -1,6 +1,8 @@
 package com.roesch.jwsalgaffar.screens
 
 import android.bluetooth.BluetoothSocket
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.compose.rememberNavController
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,8 +13,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,28 +30,34 @@ import com.roesch.jwsalgaffar.components.DynamicSelectTextField
 import com.roesch.jwsalgaffar.components.DynamicSelectTextFieldSufix2
 import com.roesch.jwsalgaffar.components.JudulInfo
 import com.roesch.jwsalgaffar.components.TombolHome
-import com.roesch.jwsalgaffar.components.TombolIcon
 import com.roesch.jwsalgaffar.components.TombolKirim
 import com.roesch.jwsalgaffar.components.listBilanganBulat
 import com.roesch.jwsalgaffar.components.listZona
-import java.io.OutputStream
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder
+import android.widget.Toast
+
+import androidx.compose.ui.platform.LocalContext
+import com.roesch.jwsalgaffar.utils.PrefManager
 
 @Composable
 fun Screen02(
     navController: NavHostController,
-    bluetoothSocket: BluetoothSocket,
-    currentLocation: LatLng
+    bluetoothSocket: BluetoothSocket? = null,
+    currentLocation: LatLng = LatLng(-6.200000, 106.816666)
 ) {
-    val bluetoothOutputStream: OutputStream = bluetoothSocket.outputStream
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     val options1 = listBilanganBulat()
 
     val options2 = listZona()
-    var input1 by remember { mutableStateOf("") }
-    var input2 by remember { mutableStateOf("") }
+    var input1 by remember { mutableStateOf(PrefManager.getString(context, "s2_ihtiyati", "")) }
+    var input2 by remember { mutableStateOf(PrefManager.getString(context, "s2_mdpl", "")) }
     var input3 by remember { mutableStateOf("") }
     var input4 by remember { mutableStateOf("") }
-    var input5 by remember { mutableStateOf("") }
+    var input5 by remember { mutableStateOf(PrefManager.getString(context, "s2_zona", "Waktu Indonesia Barat")) }
 
     val lat = currentLocation.latitude.toString()
     val long = currentLocation.longitude.toString()
@@ -101,11 +107,17 @@ fun Screen02(
                         options = options1,
                         label = "IHTIYATI",
                         suffix = "MENIT",
-                        onValueChangedEvent ={input1 = it}
+                        onValueChangedEvent ={
+                            input1 = it
+                            PrefManager.saveString(context, "s2_ihtiyati", it)
+                        }
                     )
                     OutlinedTextField(
                         value = input2,
-                        onValueChange = { input2 = it },
+                        onValueChange = {
+                            input2 = it
+                            PrefManager.saveString(context, "s2_mdpl", it)
+                        },
                         label = { Text("MDPL")},
                         modifier = Modifier
                             .width(176.dp)
@@ -147,7 +159,10 @@ fun Screen02(
                         selectedValue = input5,
                         options = options2,
                         label = "ZONA WAKTU",
-                        onValueChangedEvent ={input5 = it}
+                        onValueChangedEvent ={
+                            input5 = it
+                            PrefManager.saveString(context, "s2_zona", it)
+                        }
                     )
                 }
 
@@ -161,13 +176,13 @@ fun Screen02(
                         modifier = Modifier
                             .clickable(
                                 onClick = {
-                                    for(data in datas) {
-                                        val dataQ =
-                                            buildString {
-                                                append(data)
-                                                append("\n")
-                                            }
-                                        bluetoothOutputStream.write(dataQ.toByteArray())
+                                    coroutineScope.launch {
+                                        val success = BluetoothConnectionHolder.sendDataList(datas)
+                                        if (success) {
+                                            Toast.makeText(context, "Data Koordinat & Ihtiyati berhasil dikirim!", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            Toast.makeText(context, "Gagal mengirim data. Pastikan Bluetooth terhubung!", Toast.LENGTH_SHORT).show()
+                                        }
                                     }
                                 }
                             )
@@ -199,4 +214,11 @@ fun Screen02(
             }
         }
     }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun Screen02Preview() {
+    val navController = rememberNavController()
+    Screen02(navController = navController)
 }

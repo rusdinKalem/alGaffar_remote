@@ -3,7 +3,11 @@
 package com.roesch.jwsalgaffar.screens
 
 import android.bluetooth.BluetoothSocket
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.compose.rememberNavController
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +19,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,30 +39,36 @@ import com.roesch.jwsalgaffar.components.DynamicSelectTextFieldSufix2
 import com.roesch.jwsalgaffar.components.JudulInfo
 import com.roesch.jwsalgaffar.components.TextSwitch
 import com.roesch.jwsalgaffar.components.TombolHome
-import com.roesch.jwsalgaffar.components.TombolIcon
 import com.roesch.jwsalgaffar.components.TombolKirim
 import com.roesch.jwsalgaffar.components.listMode
 import com.roesch.jwsalgaffar.components.listWaktuMalam
 import com.roesch.jwsalgaffar.components.listWaktuPagi
-import java.io.OutputStream
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import android.widget.Toast
+
+import androidx.compose.ui.platform.LocalContext
+import com.roesch.jwsalgaffar.utils.PrefManager
 
 @Composable
-fun Screen08(navController: NavHostController, bluetoothSocket: BluetoothSocket) {
-    val bluetoothOutputStream: OutputStream = bluetoothSocket.outputStream
+fun Screen08(navController: NavHostController, bluetoothSocket: BluetoothSocket? = null) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
 
     val options1 = listMode()
     val options2 = listWaktuMalam()
     val options3 = listWaktuPagi()
 
-    var checked1 by remember { mutableStateOf(true) }
-    var checked2 by remember { mutableStateOf(true) }
-    var checked3 by remember { mutableStateOf(true) }
-    var checked4 by remember { mutableStateOf(true) }
-    var sliderPosition by remember { mutableFloatStateOf(0f) }
-    var sliderPosition2 by remember { mutableFloatStateOf(0f) }
-    var theme by remember { mutableStateOf("") }
-    var start by remember { mutableStateOf("") }
-    var finish by remember { mutableStateOf("") }
+    var checked1 by remember { mutableStateOf(PrefManager.getBoolean(context, "s8_sw1", true)) }
+    var checked2 by remember { mutableStateOf(PrefManager.getBoolean(context, "s8_sw2", true)) }
+    var checked3 by remember { mutableStateOf(PrefManager.getBoolean(context, "s8_sw3", true)) }
+    var checked4 by remember { mutableStateOf(PrefManager.getBoolean(context, "s8_sw4", true)) }
+    var sliderPosition by remember { mutableFloatStateOf(PrefManager.getFloat(context, "s8_sl1", 0f)) }
+    var sliderPosition2 by remember { mutableFloatStateOf(PrefManager.getFloat(context, "s8_sl2", 0f)) }
+    var theme by remember { mutableStateOf(PrefManager.getString(context, "s8_theme", "")) }
+    var start by remember { mutableStateOf(PrefManager.getString(context, "s8_start", "")) }
+    var finish by remember { mutableStateOf(PrefManager.getString(context, "s8_finish", "")) }
 
     val mode = when(theme){
         "NORMAL" ->  1
@@ -71,8 +80,8 @@ fun Screen08(navController: NavHostController, bluetoothSocket: BluetoothSocket)
 
     val kali1 = 255
     val kali2 = 150
-    val dataSlider1 = sliderPosition*kali1
-    val dataSlider2 = sliderPosition*kali2
+    val dataSlider1 = (sliderPosition * kali1).toInt()
+    val dataSlider2 = (sliderPosition2 * kali2).toInt()
 
     val buzzer = when(checked1){
         true -> 1
@@ -109,12 +118,15 @@ fun Screen08(navController: NavHostController, bluetoothSocket: BluetoothSocket)
 
         Column (
             modifier = Modifier
-                .fillMaxSize(),
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(bottom = 30.dp),
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = Alignment.CenterHorizontally
         ){
             JudulInfo(
-                judul = "TYPE & NAMA TEMPAT SHOLAT",
-                info = "Pilih type tempat sholat, dengan pilihan Masjid/Musholla/Surau/Langgar. " +
-                        "Dan input nama tempat sholat dimaksud"
+                judul = "SETTINGS TOOLS",
+                info = "Pilih tombol aktifasi pengingat penunjuk waktu, kecerahan LED, kecepatan running text, serta tampilan layar dimalam hari."
             )
 
             Row(
@@ -132,6 +144,7 @@ fun Screen08(navController: NavHostController, bluetoothSocket: BluetoothSocket)
                     checked = checked1,
                     onCheckedChange = {
                         checked1 = it
+                        PrefManager.saveBoolean(context, "s8_sw1", it)
                     },
                     thumbContent = if (checked1) {
                         {
@@ -155,12 +168,13 @@ fun Screen08(navController: NavHostController, bluetoothSocket: BluetoothSocket)
                 horizontalArrangement = Arrangement.SpaceBetween
 
             )   {
-                TextSwitch("TAMPILAN WAKTU IMSAK")
+                TextSwitch("TAMPILAN IMSAK")
 
                 androidx.compose.material3.Switch(
                     checked = checked2,
                     onCheckedChange = {
                         checked2 = it
+                        PrefManager.saveBoolean(context, "s8_sw2", it)
                     },
                     thumbContent = if (checked2) {
                         {
@@ -185,12 +199,13 @@ fun Screen08(navController: NavHostController, bluetoothSocket: BluetoothSocket)
                 horizontalArrangement = Arrangement.SpaceBetween
 
             )   {
-                TextSwitch("TAMPILAN WAKTU SURUK/TERBIT")
+                TextSwitch("TAMPILAN TERBIT")
 
                 androidx.compose.material3.Switch(
                     checked = checked3,
                     onCheckedChange = {
                         checked3 = it
+                        PrefManager.saveBoolean(context, "s8_sw3", it)
                     },
                     thumbContent = if (checked3) {
                         {
@@ -215,12 +230,13 @@ fun Screen08(navController: NavHostController, bluetoothSocket: BluetoothSocket)
                 horizontalArrangement = Arrangement.SpaceBetween
 
             )   {
-                TextSwitch("TAMPILAN WAKTU DHUHA")
+                TextSwitch("TAMPILAN DHUHA")
 
                 androidx.compose.material3.Switch(
                     checked = checked4,
                     onCheckedChange = {
                         checked4 = it
+                        PrefManager.saveBoolean(context, "s8_sw4", it)
                     },
                     thumbContent = if (checked4) {
                         {
@@ -247,16 +263,22 @@ fun Screen08(navController: NavHostController, bluetoothSocket: BluetoothSocket)
                     Text(text = "KECERAHAN LED = $dataSlider1", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
                     androidx.compose.material3.Slider(
                         value = sliderPosition,
-                        onValueChange = { sliderPosition = it }
+                        onValueChange = {
+                            sliderPosition = it
+                            PrefManager.saveFloat(context, "s8_sl1", it)
+                        }
                     )
 
                 }
                 Spacer(modifier = Modifier.height(10.dp))
                 Column {
-                    Text(text = "KECERAHAN LED = $dataSlider2", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+                    Text(text = "KECEPATAN RUNNING TEXT = $dataSlider2", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
                     androidx.compose.material3.Slider(
                         value = sliderPosition2,
-                        onValueChange = { sliderPosition2 = it }
+                        onValueChange = {
+                            sliderPosition2 = it
+                            PrefManager.saveFloat(context, "s8_sl2", it)
+                        }
                     )
                 }
             }
@@ -272,10 +294,13 @@ fun Screen08(navController: NavHostController, bluetoothSocket: BluetoothSocket)
                     selectedValue = theme,
                     options = options1,
                     label = "MODE MALAM",
-                    onValueChangedEvent ={theme = it}
+                    onValueChangedEvent ={
+                        theme = it
+                        PrefManager.saveString(context, "s8_theme", it)
+                    }
                 )
             }
-            if (theme !== "NORMAL"){
+            if (theme != "NORMAL"){
 
                 Row(
                     modifier = Modifier
@@ -289,14 +314,20 @@ fun Screen08(navController: NavHostController, bluetoothSocket: BluetoothSocket)
                         options = options2,
                         label = "START",
                         suffix = "MALAM",
-                        onValueChangedEvent ={start = it}
+                        onValueChangedEvent ={
+                            start = it
+                            PrefManager.saveString(context, "s8_start", it)
+                        }
                     )
                     DynamicSelectTextFieldSufix2(
                         selectedValue = finish,
                         options = options3,
                         label = "FINISH",
                         suffix = "PAGI",
-                        onValueChangedEvent ={finish = it}
+                        onValueChangedEvent ={
+                            finish = it
+                            PrefManager.saveString(context, "s8_finish", it)
+                        }
                     )
                 }
             } else {
@@ -312,13 +343,13 @@ fun Screen08(navController: NavHostController, bluetoothSocket: BluetoothSocket)
                     modifier = Modifier
                         .clickable(
                             onClick = {
-                                for(data in datas) {
-                                    val dataQ =
-                                        buildString {
-                                            append(data)
-                                            append("\n")
-                                        }
-                                    bluetoothOutputStream.write(dataQ.toByteArray())
+                                coroutineScope.launch {
+                                    val success = com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder.sendDataList(datas)
+                                    if (success) {
+                                        Toast.makeText(context, "Data Tools berhasil dikirim!", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, "Gagal mengirim data. Pastikan Bluetooth terhubung!", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                             }
                         )
@@ -330,11 +361,19 @@ fun Screen08(navController: NavHostController, bluetoothSocket: BluetoothSocket)
                     "MENU UTAMA",
                     navController
                 )
+                Spacer(Modifier.height(30.dp))
             }
 
 
 
         }
     }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun Screen08Preview() {
+    val navController = rememberNavController()
+    Screen08(navController = navController)
 }
 

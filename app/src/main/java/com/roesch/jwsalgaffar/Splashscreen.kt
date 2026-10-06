@@ -2,6 +2,7 @@ package com.roesch.jwsalgaffar
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -23,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -32,44 +34,59 @@ class Splashscreen : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        window.setFlags(
-            WindowManager.LayoutParams.FLAG_SCALED,
-            WindowManager.LayoutParams.FLAG_BLUR_BEHIND,
-        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            window.setFlags(
+                WindowManager.LayoutParams.FLAG_SCALED,
+                WindowManager.LayoutParams.FLAG_BLUR_BEHIND,
+            )
+        }
         Handler(Looper.getMainLooper()).postDelayed(
             {
                 val intent = Intent(this, MainActivity::class.java)
                 startActivity(intent)
                 finish()
             },
-            3000
+            2500
         )
-//        }
-
-
 
         setContent {
             Box(
-                modifier = Modifier
-                    .fillMaxSize(),
-                contentAlignment = Alignment.Center,
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                // Background Wallpaper (Masjid Nabawi)
+                Image(
+                    painter = painterResource(id = R.drawable.bg02),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    alpha = 0.35f
+                )
 
-                ) {
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center)
-                {
+                    verticalArrangement = Arrangement.Center
+                ) {
                     Image(
                         painter = painterResource(id = R.drawable.splash),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(250.dp),
+                        contentDescription = "Logo",
+                        modifier = Modifier.size(220.dp)
                     )
-                    Spacer(modifier = Modifier.height(40.dp))
-                    Text(text = "JWS alGAFFAR", fontSize = 36.sp, color = Color.Black)
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(text = "Setting JWS Via Bluetooth ", fontSize = 18.sp, color = Color.Black)
+                    Spacer(modifier = Modifier.height(25.dp))
+                    Text(
+                        text = "alGaffar",
+                        fontSize = 36.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF004D40)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "JWS Remote Controller",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF37474F)
+                    )
                 }
             }
         }

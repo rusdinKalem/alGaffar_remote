@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">JWS Al Gaffar</string>
+    <string name="app_name">alGaffar</string>
     <string name="activity_utama">MainActivity</string>
     <string name="activity_home">HomeActivity</string>
     <string name="activity_screen2">HomeActivity</string>

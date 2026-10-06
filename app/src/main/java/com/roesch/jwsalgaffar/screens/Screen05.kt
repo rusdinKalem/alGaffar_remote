@@ -1,6 +1,8 @@
 package com.roesch.jwsalgaffar.screens
 
 import android.bluetooth.BluetoothSocket
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.compose.rememberNavController
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,9 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,25 +25,29 @@ import com.roesch.jwsalgaffar.components.DynamicSelectTextFieldSufix
 import com.roesch.jwsalgaffar.components.DynamicSelectTextFieldSufix2
 import com.roesch.jwsalgaffar.components.JudulInfo
 import com.roesch.jwsalgaffar.components.TombolHome
-import com.roesch.jwsalgaffar.components.TombolIcon
 import com.roesch.jwsalgaffar.components.TombolKirim
 import com.roesch.jwsalgaffar.components.listBilanganBulatPositif
-import java.io.OutputStream
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import android.widget.Toast
+
+import androidx.compose.ui.platform.LocalContext
+import com.roesch.jwsalgaffar.utils.PrefManager
 
 @Composable
 fun Screen05(
     navController: NavHostController,
-    bluetoothSocket: BluetoothSocket
+    bluetoothSocket: BluetoothSocket? = null
 ) {
-    val bluetoothOutputStream: OutputStream = bluetoothSocket.outputStream
-
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val options1 = listBilanganBulatPositif()
 
-    var input1 by remember { mutableStateOf("") }
-    var input2 by remember { mutableStateOf("") }
-    var input3 by remember { mutableStateOf("") }
-    var input4 by remember { mutableStateOf("") }
-    var input5 by remember { mutableStateOf("") }
+    var input1 by remember { mutableStateOf(PrefManager.getString(context, "s5_subuh", "")) }
+    var input2 by remember { mutableStateOf(PrefManager.getString(context, "s5_dzuhur", "")) }
+    var input3 by remember { mutableStateOf(PrefManager.getString(context, "s5_ashar", "")) }
+    var input4 by remember { mutableStateOf(PrefManager.getString(context, "s5_maghrib", "")) }
+    var input5 by remember { mutableStateOf(PrefManager.getString(context, "s5_isya", "")) }
 
     val datas = listOf(
         "NI1$input1",
@@ -83,7 +86,10 @@ fun Screen05(
                         options = options1,
                         label = "SUBUH",
                         suffix = "MENIT",
-                        onValueChangedEvent ={input1 = it}
+                        onValueChangedEvent ={
+                            input1 = it
+                            PrefManager.saveString(context, "s5_subuh", it)
+                        }
                     )
                 }
                 Row(
@@ -98,14 +104,20 @@ fun Screen05(
                         options = options1,
                         label = "DZUHUR",
                         suffix = "MENIT",
-                        onValueChangedEvent ={input2 = it}
+                        onValueChangedEvent ={
+                            input2 = it
+                            PrefManager.saveString(context, "s5_dzuhur", it)
+                        }
                     )
                     DynamicSelectTextFieldSufix2(
                         selectedValue = input3,
                         options = options1,
                         label = "ASHAR",
                         suffix = "MENIT",
-                        onValueChangedEvent ={input3 = it}
+                        onValueChangedEvent ={
+                            input3 = it
+                            PrefManager.saveString(context, "s5_ashar", it)
+                        }
                     )
                 }
                 Row(
@@ -120,14 +132,20 @@ fun Screen05(
                         options = options1,
                         label = "MAGHRIB",
                         suffix = "MENIT",
-                        onValueChangedEvent ={input4 = it}
+                        onValueChangedEvent ={
+                            input4 = it
+                            PrefManager.saveString(context, "s5_maghrib", it)
+                        }
                     )
                     DynamicSelectTextFieldSufix2(
                         selectedValue = input5,
                         options = options1,
                         label = "ISYA",
                         suffix = "MENIT",
-                        onValueChangedEvent ={input5 = it}
+                        onValueChangedEvent ={
+                            input5 = it
+                            PrefManager.saveString(context, "s5_isya", it)
+                        }
                     )
                 }
 
@@ -141,13 +159,13 @@ fun Screen05(
                         modifier = Modifier
                             .clickable(
                                 onClick = {
-                                    for(data in datas) {
-                                        val dataQ =
-                                            buildString {
-                                                append(data)
-                                                append("\n")
-                                            }
-                                        bluetoothOutputStream.write(dataQ.toByteArray())
+                                    coroutineScope.launch {
+                                        val success = com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder.sendDataList(datas)
+                                        if (success) {
+                                            Toast.makeText(context, "Data Iqomat berhasil dikirim!", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            Toast.makeText(context, "Gagal mengirim data. Pastikan Bluetooth terhubung!", Toast.LENGTH_SHORT).show()
+                                        }
                                     }
                                 }
                             )
@@ -163,4 +181,11 @@ fun Screen05(
             }
         }
     }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun Screen05Preview() {
+    val navController = rememberNavController()
+    Screen05(navController = navController)
 }

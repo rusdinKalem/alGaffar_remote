@@ -1,6 +1,8 @@
 package com.roesch.jwsalgaffar.screens
 
 import android.bluetooth.BluetoothSocket
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.compose.rememberNavController
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,14 +31,19 @@ import com.roesch.jwsalgaffar.components.TombolHome
 import com.roesch.jwsalgaffar.components.TombolKirim
 import com.roesch.jwsalgaffar.components.listStep
 import com.roesch.jwsalgaffar.components.listTriger
-import java.io.OutputStream
+import com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun Screen09(
     navController: NavHostController,
-    bluetoothSocket: BluetoothSocket
+    bluetoothSocket: BluetoothSocket? = null
 ) {
-    val bluetoothOutputStream: OutputStream = bluetoothSocket.outputStream
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val options1 : List<String> = listTriger()
     val options2 : List<String> = listStep()
 
@@ -82,8 +89,8 @@ fun Screen09(
                 verticalArrangement = Arrangement.Top
             ){
                 JudulInfo(
-                    judul = "KOREKSI HIJRIYAH DAN WAKTU SHOLAT",
-                    info = "Pilih nilai koreksi tanggal Hijriyah dan Waktu Sholat Yang Diinginkan"
+                    judul = "PENGATURAN SAKLAR RELAY",
+                    info = "Pilih triger dan durasi waktu saklar Relay (R1 - R4) untuk otomatisasi perangkat listrik masjid"
                 )
                 //R1
                 Row(
@@ -285,13 +292,13 @@ fun Screen09(
                         modifier = Modifier
                             .clickable(
                                 onClick = {
-                                    for(data in datas) {
-                                        val dataQ =
-                                            buildString {
-                                                append(data)
-                                                append("\n")
-                                            }
-                                        bluetoothOutputStream.write(dataQ.toByteArray())
+                                    coroutineScope.launch {
+                                        val success = BluetoothConnectionHolder.sendDataList(datas)
+                                        if (success) {
+                                            Toast.makeText(context, "Data Relay berhasil dikirim!", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            Toast.makeText(context, "Gagal mengirim data. Pastikan Bluetooth terhubung!", Toast.LENGTH_SHORT).show()
+                                        }
                                     }
                                 }
                             )
@@ -307,4 +314,11 @@ fun Screen09(
             }
         }
     }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun Screen09Preview() {
+    val navController = rememberNavController()
+    Screen09(navController = navController)
 }

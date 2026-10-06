@@ -44,8 +44,9 @@ import com.roesch.jwsalgaffar.screens.Screen05
 import com.roesch.jwsalgaffar.screens.Screen06
 import com.roesch.jwsalgaffar.screens.Screen07
 import com.roesch.jwsalgaffar.screens.Screen08
-import com.roesch.jwsalgaffar.screens.Screen09
+import com.roesch.jwsalgaffar.screens.ScreenMp3
 import com.roesch.jwsalgaffar.ui.theme.JWSAlGaffarTheme
+import com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder
 import com.roesch.jwsalgaffar.utils.BluetoothHandler
 
 class HomeActivity : ComponentActivity() {
@@ -56,9 +57,8 @@ class HomeActivity : ComponentActivity() {
     )
 
     private lateinit var bluetoothAdapter: BluetoothAdapter
-    private lateinit var address: String
-    private lateinit var connection: BluetoothHandler
-    private lateinit var bluetoothSocket: BluetoothSocket
+    private var address: String = ""
+    private var bluetoothSocket: BluetoothSocket? = null
 
     private  lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
@@ -88,19 +88,37 @@ class HomeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        bluetoothAdapter = getSystemService(BluetoothManager::class.java).adapter
-        address = intent.getStringExtra("Address")!!
-        connection = BluetoothHandler(bluetoothAdapter, address)
-        connection.start()
-        bluetoothSocket = connection.createSocket(bluetoothAdapter.getRemoteDevice(address))
-        Thread {
-            try {
-
-                bluetoothSocket.connect()
-            } catch (_: Exception) {
-
+        val mode = intent.getStringExtra("Mode") ?: "BLUETOOTH"
+        if (mode == "WIFI") {
+            com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder.connectionMode = com.roesch.jwsalgaffar.utils.ConnectionMode.WIFI
+        } else {
+            com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder.connectionMode = com.roesch.jwsalgaffar.utils.ConnectionMode.BLUETOOTH
+            val btManager = getSystemService(BluetoothManager::class.java)
+            if (btManager != null) {
+                bluetoothAdapter = btManager.adapter
             }
-        }.start()
+            address = intent.getStringExtra("Address") ?: ""
+
+            val activeSocket = com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder.socket
+            if (activeSocket != null && activeSocket.isConnected) {
+                bluetoothSocket = activeSocket
+            } else if (address.isNotEmpty() && ::bluetoothAdapter.isInitialized) {
+                val device = bluetoothAdapter.getRemoteDevice(address)
+                bluetoothSocket = BluetoothConnectionHolder.createSocket(device)
+                Thread {
+                    val success = BluetoothConnectionHolder.connect(bluetoothAdapter, address)
+                    if (success) {
+                        BluetoothConnectionHolder.socket?.let {
+                            bluetoothSocket = it
+                        }
+                    } else {
+                        runOnUiThread {
+                            Toast.makeText(this, "Koneksi Bluetooth terputus.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }.start()
+            }
+        }
 
         enableEdgeToEdge()
 
@@ -161,10 +179,10 @@ class HomeActivity : ComponentActivity() {
 }
 
 @Composable
-fun Nav(modifier: Modifier, bluetoothSocket: BluetoothSocket, currentLocation: LatLng) {
+fun Nav(modifier: Modifier, bluetoothSocket: BluetoothSocket?, currentLocation: LatLng) {
     val navController = rememberNavController()
     val scrollState = rememberScrollState()
-    NavHost(navController = navController, startDestination = "Home") {
+    NavHost(navController = navController, startDestination = "Home", modifier = modifier) {
 
        composable(route="Home"){
             HomeScreen(navController)
@@ -193,13 +211,9 @@ fun Nav(modifier: Modifier, bluetoothSocket: BluetoothSocket, currentLocation: L
         composable(route="08"){
             Screen08(navController, bluetoothSocket)
         }
-        composable(route="09"){
-            Screen09(navController, bluetoothSocket)
+        composable(route="10"){
+            ScreenMp3(navController, bluetoothSocket)
         }
-//        composable(route="09"){
-//            Screen09(navController)
-//        }
-//
     }
 }
 

@@ -47,23 +47,40 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.roesch.jwsalgaffar.R
+import com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder
 import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun Picker(bluetoothSocket: BluetoothSocket) {
+fun Picker(bluetoothSocket: BluetoothSocket? = null) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
-    val bluetoothOutputStream: OutputStream = bluetoothSocket.outputStream
+    fun sendData(cmd: String) {
+        coroutineScope.launch {
+            val success = BluetoothConnectionHolder.sendData(cmd)
+            if (success) {
+                Toast.makeText(context, "Data Waktu dikirim!", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "Bluetooth tidak terhubung!", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     var showModalTime by remember { mutableStateOf(false) }
     var showModalDate by remember { mutableStateOf(false) }
@@ -243,10 +260,17 @@ fun Picker(bluetoothSocket: BluetoothSocket) {
         Column(
             modifier = Modifier
                 .clickable(
-                    onClick = {bluetoothOutputStream.write(
-                        "SDT$selectedDateSend${formatterSend.format(cal.time)}$numberDay"
-                            .toByteArray()
-                    )}
+                    onClick = {
+                        val currentCal = Calendar.getInstance()
+                        if (selectedTime != null) {
+                            currentCal.set(Calendar.HOUR_OF_DAY, selectedTime!!.hour)
+                            currentCal.set(Calendar.MINUTE, selectedTime!!.minute)
+                            currentCal.set(Calendar.SECOND, 0)
+                        }
+                        val timeStr = formatterSend.format(currentCal.time)
+                        val command = "SDT$selectedDateSend$timeStr$numberDay"
+                        sendData(command)
+                    }
                 )
                 .fillMaxWidth()
                 .padding(horizontal = 10.dp)

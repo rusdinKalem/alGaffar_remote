@@ -105,9 +105,9 @@ fun SetRow3(navController: NavHostController) {
         Box(
             modifier = Modifier
                 .clickable(
-                    onClick = {navController.navigate("09")}
+                    onClick = {navController.navigate("10")}
                 )
         )
-        { ShortCut("RELAY", R.drawable.relay) }
+        { ShortCut("MP3 AUDIO", R.drawable.baseline_music_note_24) }
     }
 }
