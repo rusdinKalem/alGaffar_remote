@@ -35,8 +35,10 @@ import com.roesch.jwsalgaffar.components.TombolKirim
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import android.widget.Toast
-
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.platform.LocalContext
+import com.roesch.jwsalgaffar.components.SendingProgressDialog
+import com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder
 import com.roesch.jwsalgaffar.utils.PrefManager
 
 @Composable
@@ -47,6 +49,12 @@ fun Screen07(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+
+    var isSending by remember { mutableStateOf(false) }
+    var sendProgress by remember { mutableIntStateOf(0) }
+    var sendTotal by remember { mutableIntStateOf(0) }
+    var currentItemLabel by remember { mutableStateOf("") }
+
     var input1 by remember { mutableStateOf(PrefManager.getString(context, "s7_run1", "")) }
     var input2 by remember { mutableStateOf(PrefManager.getString(context, "s7_run2", "")) }
     var input3 by remember { mutableStateOf(PrefManager.getString(context, "s7_run3", "")) }
@@ -60,8 +68,8 @@ fun Screen07(
         "CSM$input4",
         "CJM$input5"
     )
-    val maxChar = 150
-    val maxPesan = 75
+    val maxChar = 149
+    val maxPesan = 149
     val jmlh1= input1.count()
     val jmlh2= input2.count()
     val jmlh3= input3.count()
@@ -255,12 +263,33 @@ fun Screen07(
                     modifier = Modifier
                         .clickable(
                             onClick = {
+                                if (isSending) return@clickable
                                 coroutineScope.launch {
-                                    val success = com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder.sendDataList(datas)
+                                    isSending = true
+                                    sendTotal = datas.size
+                                    sendProgress = 0
+
+                                    val success = BluetoothConnectionHolder.sendDataList(
+                                        dataList = datas,
+                                        delayBetweenMs = 800L
+                                    ) { current, total, item ->
+                                        sendProgress = current
+                                        sendTotal = total
+                                        currentItemLabel = when {
+                                            item.startsWith("CN1") -> "1. Running Text 1"
+                                            item.startsWith("CN2") -> "2. Running Text 2"
+                                            item.startsWith("CN3") -> "3. Running Text 3"
+                                            item.startsWith("CSM") -> "4. Pesan Pra-Sholat"
+                                            item.startsWith("CJM") -> "5. Pesan Pra-Khutbah"
+                                            else -> item
+                                        }
+                                    }
+
+                                    isSending = false
                                     if (success) {
-                                        Toast.makeText(context, "Data Running Text berhasil dikirim!", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Berhasil! ${datas.size} Data Running Text terkirim.", Toast.LENGTH_SHORT).show()
                                     } else {
-                                        Toast.makeText(context, "Gagal mengirim data. Pastikan Bluetooth terhubung!", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Gagal mengirim data. Pastikan koneksi terhubung!", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             }
@@ -293,6 +322,14 @@ fun Screen07(
         }
 
         }
+
+        SendingProgressDialog(
+            show = isSending,
+            current = sendProgress,
+            total = sendTotal,
+            moduleTitle = "RUNNING TEXT",
+            itemLabel = currentItemLabel
+        )
     }
 }
 

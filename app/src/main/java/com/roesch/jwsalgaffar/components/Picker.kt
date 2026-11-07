@@ -89,31 +89,22 @@ fun Picker(bluetoothSocket: BluetoothSocket? = null) {
 
     val cal = Calendar.getInstance()
     var selectedTime: TimePickerState? by remember { mutableStateOf(null) }
-    val formatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
-    val formatterSend = remember { SimpleDateFormat("HHmmss", Locale.getDefault()) }
+    val formatter = remember { SimpleDateFormat("HH:mm:ss", Locale.US) }
+    val formatterSend = remember { SimpleDateFormat("HHmmss", Locale.US) }
     val datePickerState = rememberDatePickerState()
     val selectedDate =  datePickerState.selectedDateMillis?.let {
         convertMillisToDate(it) } ?: ""
-    val defaultDate = SimpleDateFormat("ddMMyy", Locale.getDefault()).format(cal.time)
-    val defaultDay  = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
+    val defaultDate = SimpleDateFormat("ddMMyy", Locale.US).format(cal.time)
+    val defaultDay  = Calendar.getInstance().get(Calendar.DAY_OF_WEEK).coerceIn(1, 7)
     val selectedDateSend =  datePickerState.selectedDateMillis?.let {
         convertMillisToDateSend(it) } ?: defaultDate
 
 
 
-    val daySelected = datePickerState.selectedDateMillis?.let {
-        convertMillisToDay(it) }?: ""
-
-    val numberDay = when(daySelected){
-        "Minggu" ->  "1"
-        "Senin" ->  "2"
-        "Slasa" ->  "3"
-        "Rabu" ->  "4"
-        "Kamis" ->  "5"
-        "Jumat" ->  "6"
-        "Sabtu" ->  "7"
-        else -> defaultDay
-    }
+    val numberDay = datePickerState.selectedDateMillis?.let { millis ->
+        val c = Calendar.getInstance().apply { timeInMillis = millis }
+        c.get(Calendar.DAY_OF_WEEK).coerceIn(1, 7).toString()
+    } ?: defaultDay.toString()
 
     Row(
         Modifier
@@ -224,10 +215,10 @@ fun Picker(bluetoothSocket: BluetoothSocket? = null) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    if (selectedTime != null){
-                        cal.set(Calendar.HOUR_OF_DAY, selectedTime!!.hour)
-                        cal.set(Calendar.MINUTE, selectedTime!!.minute)
-                        cal.isLenient = false
+                    val pickedTime = selectedTime
+                    if (pickedTime != null){
+                        cal.set(Calendar.HOUR_OF_DAY, pickedTime.hour)
+                        cal.set(Calendar.MINUTE, pickedTime.minute)
                         Text(
                             text = formatter.format(cal.time), fontWeight = FontWeight.SemiBold,
                             fontSize = 18.sp, modifier = Modifier.padding(horizontal = 15.dp))
@@ -261,15 +252,20 @@ fun Picker(bluetoothSocket: BluetoothSocket? = null) {
             modifier = Modifier
                 .clickable(
                     onClick = {
-                        val currentCal = Calendar.getInstance()
-                        if (selectedTime != null) {
-                            currentCal.set(Calendar.HOUR_OF_DAY, selectedTime!!.hour)
-                            currentCal.set(Calendar.MINUTE, selectedTime!!.minute)
-                            currentCal.set(Calendar.SECOND, 0)
+                        try {
+                            val currentCal = Calendar.getInstance()
+                            val pickedTime = selectedTime
+                            if (pickedTime != null) {
+                                currentCal.set(Calendar.HOUR_OF_DAY, pickedTime.hour)
+                                currentCal.set(Calendar.MINUTE, pickedTime.minute)
+                                currentCal.set(Calendar.SECOND, 0)
+                            }
+                            val timeStr = formatterSend.format(currentCal.time)
+                            val command = "SDT$selectedDateSend$timeStr$numberDay"
+                            sendData(command)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Gagal memformat waktu: ${e.message}", Toast.LENGTH_SHORT).show()
                         }
-                        val timeStr = formatterSend.format(currentCal.time)
-                        val command = "SDT$selectedDateSend$timeStr$numberDay"
-                        sendData(command)
                     }
                 )
                 .fillMaxWidth()

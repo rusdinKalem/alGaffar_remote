@@ -32,7 +32,9 @@ import kotlinx.coroutines.launch
 import android.widget.Toast
 
 import androidx.compose.ui.platform.LocalContext
+import com.roesch.jwsalgaffar.components.SendingProgressDialog
 import com.roesch.jwsalgaffar.utils.PrefManager
+import androidx.compose.runtime.mutableIntStateOf
 
 @Composable
 fun Screen04(
@@ -41,14 +43,20 @@ fun Screen04(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+
+    var isSending by remember { mutableStateOf(false) }
+    var sendProgress by remember { mutableIntStateOf(0) }
+    var sendTotal by remember { mutableIntStateOf(0) }
+    var currentItemLabel by remember { mutableStateOf("") }
+
     val options1 : List<String> = listBilanganBulat()
 
-    var input1 by remember { mutableStateOf(PrefManager.getString(context, "s4_hijriyah", "")) }
-    var input2 by remember { mutableStateOf(PrefManager.getString(context, "s4_subuh", "")) }
-    var input3 by remember { mutableStateOf(PrefManager.getString(context, "s4_dzuhur", "")) }
-    var input4 by remember { mutableStateOf(PrefManager.getString(context, "s4_ashar", "")) }
-    var input5 by remember { mutableStateOf(PrefManager.getString(context, "s4_maghrib", "")) }
-    var input6 by remember { mutableStateOf(PrefManager.getString(context, "s4_isya", "")) }
+    var input1 by remember { mutableStateOf(PrefManager.getString(context, "s4_hijriyah", "0")) }
+    var input2 by remember { mutableStateOf(PrefManager.getString(context, "s4_subuh", "0")) }
+    var input3 by remember { mutableStateOf(PrefManager.getString(context, "s4_dzuhur", "0")) }
+    var input4 by remember { mutableStateOf(PrefManager.getString(context, "s4_ashar", "0")) }
+    var input5 by remember { mutableStateOf(PrefManager.getString(context, "s4_maghrib", "0")) }
+    var input6 by remember { mutableStateOf(PrefManager.getString(context, "s4_isya", "0")) }
 
     val datas = listOf(
         "NCH$input1",
@@ -171,12 +179,34 @@ fun Screen04(
                         modifier = Modifier
                             .clickable(
                                 onClick = {
+                                    if (isSending) return@clickable
                                     coroutineScope.launch {
-                                        val success = BluetoothConnectionHolder.sendDataList(datas)
+                                        isSending = true
+                                        sendTotal = datas.size
+                                        sendProgress = 0
+
+                                        val success = BluetoothConnectionHolder.sendDataList(
+                                            dataList = datas,
+                                            delayBetweenMs = 800L
+                                        ) { current, total, item ->
+                                            sendProgress = current
+                                            sendTotal = total
+                                            currentItemLabel = when {
+                                                item.startsWith("NCH") -> "1. Hijriyah: $input1 Hari"
+                                                item.startsWith("NIS") -> "2. Subuh: $input2 Mnt"
+                                                item.startsWith("NIL") -> "3. Dzuhur: $input3 Mnt"
+                                                item.startsWith("NIA") -> "4. Ashar: $input4 Mnt"
+                                                item.startsWith("NIM") -> "5. Maghrib: $input5 Mnt"
+                                                item.startsWith("NII") -> "6. Isya: $input6 Mnt"
+                                                else -> item
+                                            }
+                                        }
+
+                                        isSending = false
                                         if (success) {
-                                            Toast.makeText(context, "Data Koreksi berhasil dikirim!", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "Berhasil! ${datas.size} Data Koreksi terkirim.", Toast.LENGTH_SHORT).show()
                                         } else {
-                                            Toast.makeText(context, "Gagal mengirim data. Pastikan Bluetooth terhubung!", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "Gagal mengirim data. Pastikan koneksi terhubung!", Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 }
@@ -192,6 +222,14 @@ fun Screen04(
                 }
             }
         }
+
+        SendingProgressDialog(
+            show = isSending,
+            current = sendProgress,
+            total = sendTotal,
+            moduleTitle = "DATA KOREKSI",
+            itemLabel = currentItemLabel
+        )
     }
 }
 

@@ -39,7 +39,9 @@ import com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder
 import android.widget.Toast
 
 import androidx.compose.ui.platform.LocalContext
+import com.roesch.jwsalgaffar.components.SendingProgressDialog
 import com.roesch.jwsalgaffar.utils.PrefManager
+import androidx.compose.runtime.mutableIntStateOf
 
 @Composable
 fun Screen02(
@@ -50,30 +52,43 @@ fun Screen02(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
+    var isSending by remember { mutableStateOf(false) }
+    var sendProgress by remember { mutableIntStateOf(0) }
+    var sendTotal by remember { mutableIntStateOf(0) }
+    var currentItemLabel by remember { mutableStateOf("") }
+
     val options1 = listBilanganBulat()
 
     val options2 = listZona()
-    var input1 by remember { mutableStateOf(PrefManager.getString(context, "s2_ihtiyati", "")) }
-    var input2 by remember { mutableStateOf(PrefManager.getString(context, "s2_mdpl", "")) }
-    var input3 by remember { mutableStateOf("") }
-    var input4 by remember { mutableStateOf("") }
-    var input5 by remember { mutableStateOf(PrefManager.getString(context, "s2_zona", "Waktu Indonesia Barat")) }
+    var input1 by remember { mutableStateOf(PrefManager.getString(context, "s2_ihtiyati", "2")) }
+    var input2 by remember { mutableStateOf(PrefManager.getString(context, "s2_mdpl", "68")) }
+    var inputLat by remember { mutableStateOf(PrefManager.getString(context, "s2_lat", "-4.054413")) }
+    var inputLong by remember { mutableStateOf(PrefManager.getString(context, "s2_long", "121.598583")) }
+    var input5 by remember { mutableStateOf(PrefManager.getString(context, "s2_zona", "Waktu Indonesia Tengah")) }
 
-    val lat = currentLocation.latitude.toString()
-    val long = currentLocation.longitude.toString()
+    androidx.compose.runtime.LaunchedEffect(currentLocation) {
+        if (currentLocation.latitude != 0.0 || currentLocation.longitude != 0.0) {
+            val formattedLat = String.format(java.util.Locale.US, "%.6f", currentLocation.latitude)
+            val formattedLong = String.format(java.util.Locale.US, "%.6f", currentLocation.longitude)
+            inputLat = formattedLat
+            inputLong = formattedLong
+            PrefManager.saveString(context, "s2_lat", formattedLat)
+            PrefManager.saveString(context, "s2_long", formattedLong)
+        }
+    }
 
     val zona = when(input5){
         "Waktu Indonesia Barat" ->  7
         "Waktu Indonesia Tengah" ->  8
         "Waktu Indonesia Timur" ->  9
-        else -> ""
+        else -> 8
     }
 
     val datas = listOf(
         "NIH$input1",
         "NAL$input2",
-        "NLA$lat",
-        "NLO$long",
+        "NLA$inputLat",
+        "NLO$inputLong",
         "NTZ$zona"
     )
     Column(
@@ -134,16 +149,22 @@ fun Screen02(
 
 
                     OutlinedTextField(
-                        value = lat,
-                        onValueChange = { input3 = it },
+                        value = inputLat,
+                        onValueChange = {
+                            inputLat = it
+                            PrefManager.saveString(context, "s2_lat", it)
+                        },
                         label = { Text("LATITUDE") },
                         modifier = Modifier
                             .width(176.dp)
                     )
 
                     OutlinedTextField(
-                        value = long,
-                        onValueChange = { input4 = it },
+                        value = inputLong,
+                        onValueChange = {
+                            inputLong = it
+                            PrefManager.saveString(context, "s2_long", it)
+                        },
                         label = { Text("LONGITUDE") },
                         modifier = Modifier
                             .width(176.dp)
@@ -176,12 +197,33 @@ fun Screen02(
                         modifier = Modifier
                             .clickable(
                                 onClick = {
+                                    if (isSending) return@clickable
                                     coroutineScope.launch {
-                                        val success = BluetoothConnectionHolder.sendDataList(datas)
+                                        isSending = true
+                                        sendTotal = datas.size
+                                        sendProgress = 0
+
+                                        val success = BluetoothConnectionHolder.sendDataList(
+                                            dataList = datas,
+                                            delayBetweenMs = 800L
+                                        ) { current, total, item ->
+                                            sendProgress = current
+                                            sendTotal = total
+                                            currentItemLabel = when {
+                                                item.startsWith("NIH") -> "1. Ihtiyati: $input1 Mnt"
+                                                item.startsWith("NAL") -> "2. MDPL: $input2 M"
+                                                item.startsWith("NLA") -> "3. Latitude: $inputLat"
+                                                item.startsWith("NLO") -> "4. Longitude: $inputLong"
+                                                item.startsWith("NTZ") -> "5. Timezone: GMT+$zona"
+                                                else -> item
+                                            }
+                                        }
+
+                                        isSending = false
                                         if (success) {
-                                            Toast.makeText(context, "Data Koordinat & Ihtiyati berhasil dikirim!", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "Berhasil! ${datas.size} Data Koordinat terkirim.", Toast.LENGTH_SHORT).show()
                                         } else {
-                                            Toast.makeText(context, "Gagal mengirim data. Pastikan Bluetooth terhubung!", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "Gagal mengirim data. Pastikan koneksi terhubung!", Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 }
@@ -213,6 +255,14 @@ fun Screen02(
 
             }
         }
+
+        SendingProgressDialog(
+            show = isSending,
+            current = sendProgress,
+            total = sendTotal,
+            moduleTitle = "DATA KOORDINAT",
+            itemLabel = currentItemLabel
+        )
     }
 }
 

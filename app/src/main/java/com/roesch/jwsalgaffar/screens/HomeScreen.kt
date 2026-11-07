@@ -2,8 +2,8 @@ package com.roesch.jwsalgaffar.screens
 
 import android.app.Activity
 import android.content.Intent
-import android.net.Uri
 import android.widget.Toast
+import androidx.core.net.toUri
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.foundation.BorderStroke
@@ -267,7 +267,7 @@ fun HomeScreen(navController: NavHostController) {
                         .shadow(elevation = 4.dp, shape = RoundedCornerShape(14.dp))
                         .clickable {
                             try {
-                                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("http://192.168.4.1"))
+                                val browserIntent = Intent(Intent.ACTION_VIEW, "http://192.168.4.1".toUri())
                                 context.startActivity(browserIntent)
                             } catch (e: Exception) {
                                 Toast.makeText(context, "Gagal membuka browser: ${e.message}", Toast.LENGTH_SHORT).show()

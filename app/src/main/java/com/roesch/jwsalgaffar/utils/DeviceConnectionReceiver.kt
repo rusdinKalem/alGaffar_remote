@@ -12,16 +12,19 @@ import android.widget.Toast
 class DeviceConnectionReceiver: BroadcastReceiver() {
     @SuppressLint("MissingPermission")
     override fun onReceive(context: Context, intent: Intent) {
-        val action = intent.action
-        val device: BluetoothDevice? = IntentCompat.getParcelableExtra(
-            intent,
-            BluetoothDevice.EXTRA_DEVICE,
-            BluetoothDevice::class.java
-        )
-        if(action.equals(BluetoothDevice.ACTION_ACL_CONNECTED)) {
-            Toast.makeText(context, "Connected to ${device?.name}", Toast.LENGTH_SHORT).show()
-        } else if(action.equals(BluetoothDevice.ACTION_ACL_DISCONNECTED)) {
-            Toast.makeText(context, "${device?.name} disconnected!", Toast.LENGTH_SHORT).show()
-        }
+        try {
+            val action = intent.action ?: return
+            val device: BluetoothDevice? = IntentCompat.getParcelableExtra(
+                intent,
+                BluetoothDevice.EXTRA_DEVICE,
+                BluetoothDevice::class.java
+            )
+            val devName = try { device?.name ?: "Bluetooth" } catch (_: Exception) { "Bluetooth" }
+            if (action == BluetoothDevice.ACTION_ACL_CONNECTED) {
+                Toast.makeText(context, "Terhubung ke $devName", Toast.LENGTH_SHORT).show()
+            } else if (action == BluetoothDevice.ACTION_ACL_DISCONNECTED) {
+                Toast.makeText(context, "Koneksi $devName terputus!", Toast.LENGTH_SHORT).show()
+            }
+        } catch (_: Exception) {}
     }
 }

@@ -37,13 +37,20 @@ import com.roesch.jwsalgaffar.components.TombolKirim
 import com.roesch.jwsalgaffar.components.listType
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import com.roesch.jwsalgaffar.components.SendingProgressDialog
 import com.roesch.jwsalgaffar.utils.PrefManager
+import androidx.compose.runtime.mutableIntStateOf
 
 @Composable
 fun Screen01(navController: NavHostController, bluetoothSocket: BluetoothSocket? = null) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
+
+    var isSending by remember { mutableStateOf(false) }
+    var sendProgress by remember { mutableIntStateOf(0) }
+    var sendTotal by remember { mutableIntStateOf(0) }
+    var currentItemLabel by remember { mutableStateOf("") }
 
     val options = listType()
     var type by remember { mutableStateOf(PrefManager.getString(context, "s1_type", "MASJID")) }
@@ -174,6 +181,7 @@ fun Screen01(navController: NavHostController, bluetoothSocket: BluetoothSocket?
             ) {
                 Row(
                     modifier = Modifier.clickable {
+                        if (isSending) return@clickable
                         coroutineScope.launch {
                             val commands = mutableListOf<String>()
 
@@ -190,17 +198,37 @@ fun Screen01(navController: NavHostController, bluetoothSocket: BluetoothSocket?
                                 commands.add("CMA$alamat")
                             }
 
-                            val success = com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder.sendDataList(commands)
+                            if (commands.isEmpty()) return@launch
+
+                            isSending = true
+                            sendTotal = commands.size
+                            sendProgress = 0
+
+                            val success = com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder.sendDataList(
+                                dataList = commands,
+                                delayBetweenMs = 800L
+                            ) { current, total, item ->
+                                sendProgress = current
+                                sendTotal = total
+                                currentItemLabel = when {
+                                    item.startsWith("NMT") -> "Tipe: $type"
+                                    item.startsWith("CMN") -> "Nama: $nama"
+                                    item.startsWith("CMA") -> "Alamat: $alamat"
+                                    else -> item
+                                }
+                            }
+
+                            isSending = false
                             if (success) {
                                 Toast.makeText(
                                     context,
-                                    "Data Masjid & Alamat berhasil dikirim!",
+                                    "Berhasil! ${commands.size} data Masjid terkirim.",
                                     Toast.LENGTH_SHORT
                                 ).show()
                             } else {
                                 Toast.makeText(
                                     context,
-                                    "Gagal mengirim data. Pastikan Bluetooth terhubung!",
+                                    "Gagal mengirim data. Pastikan koneksi terhubung!",
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }
@@ -218,6 +246,14 @@ fun Screen01(navController: NavHostController, bluetoothSocket: BluetoothSocket?
                 )
             }
         }
+
+        SendingProgressDialog(
+            show = isSending,
+            current = sendProgress,
+            total = sendTotal,
+            moduleTitle = "DATA MASJID",
+            itemLabel = currentItemLabel
+        )
     }
 }
 

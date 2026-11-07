@@ -6,7 +6,6 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.content.Intent
 import android.content.IntentFilter
-import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
@@ -42,10 +41,12 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.core.net.toUri
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -70,12 +71,16 @@ class MainActivity : ComponentActivity() {
     private var isConnecting by mutableStateOf(false)
     private var connectingDeviceName by mutableStateOf<String?>(null)
 
-    private var selectedTab by mutableStateOf(0)
+    private var selectedTab by mutableIntStateOf(0)
     private var isCheckingWifi by mutableStateOf(false)
     private var showWifiFailedDialog by mutableStateOf(false)
 
+    private var showBtFailedDialog by mutableStateOf(false)
+    private var failedErrorMessage by mutableStateOf("")
+    private var failedDeviceAddress by mutableStateOf("")
+
     private val enableBtLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
+        ActivityResultContracts.StartActivityForResult(),
     ) {
         refreshBondedDevices()
     }
@@ -116,6 +121,17 @@ class MainActivity : ComponentActivity() {
                 bondedDevices.addAll(bluetoothAdapter.bondedDevices)
             } catch (_: Exception) {}
         }
+    }
+
+    @Deprecated("Deprecated in Java API")
+    @Suppress("DEPRECATION")
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        refreshBondedDevices()
     }
 
     @SuppressLint("MissingPermission")
@@ -248,7 +264,53 @@ class MainActivity : ComponentActivity() {
                 // KONTEN TAB:
                 if (selectedTab == 0) {
                     // --- PANEL BLUETOOTH ---
-                    if (bondedDevices.isEmpty()) {
+                    if (bondedDevices.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Perangkat Terpasang (${bondedDevices.size})",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF37474F)
+                            )
+                            Row {
+                                OutlinedButton(
+                                    onClick = { refreshBondedDevices() },
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                    modifier = Modifier.height(34.dp)
+                                ) {
+                                    Text("Refresh", fontSize = 11.sp, color = Color(0xFF00796B))
+                                }
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Button(
+                                    onClick = {
+                                        try {
+                                            startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
+                                        } catch (_: Exception) {
+                                            startActivity(Intent(Settings.ACTION_SETTINGS))
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00796B)),
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                    modifier = Modifier.height(34.dp)
+                                ) {
+                                    Text("Menu BT HP", fontSize = 11.sp, color = Color.White)
+                                }
+                            }
+                        }
+
+                        for (device in bondedDevices) {
+                            PairedDevices(name = device.name ?: "Unknown Device", address = device.address)
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+                    } else {
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -263,24 +325,21 @@ class MainActivity : ComponentActivity() {
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    text = "Tidak Ada Perangkat Bluetooth",
+                                    text = "Tidak Ada Perangkat Bluetooth Terpasang",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 16.sp,
-                                    color = Color(0xFFD32F2F)
+                                    color = Color(0xFFD32F2F),
+                                    textAlign = TextAlign.Center
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = "Silakan pasangkan (pair) modul Bluetooth JWS (HC-05 / HC-06 / JWS-RGB-P5) di menu Pengaturan Bluetooth smartphone Anda terlebih dahulu.",
-                                    fontSize = 14.sp,
+                                    text = "Silakan pasangkan (pair) modul Bluetooth JWS (HC-05 / HC-06 / JWS-RGB-P5) di menu Pengaturan Bluetooth smartphone Anda terlebih dahulu dengan PIN 1234 atau 0000.",
+                                    fontSize = 13.sp,
                                     textAlign = TextAlign.Center,
-                                    color = Color(0xFF424242)
+                                    color = Color(0xFF424242),
+                                    lineHeight = 18.sp
                                 )
                             }
-                        }
-                    } else {
-                        for (device in bondedDevices) {
-                            PairedDevices(name = device.name ?: "Unknown Device", address = device.address)
-                            Spacer(modifier = Modifier.height(12.dp))
                         }
                     }
                 } else {
@@ -450,6 +509,83 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+
+            if (showBtFailedDialog) {
+                Dialog(onDismissRequest = { showBtFailedDialog = false }) {
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(22.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.baseline_bluetooth_disabled_24),
+                                contentDescription = null,
+                                tint = Color(0xFFD32F2F),
+                                modifier = Modifier.size(36.dp)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "Koneksi Bluetooth Gagal",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = Color(0xFFD32F2F),
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = failedErrorMessage.ifEmpty { "Gagal terhubung ke modul Bluetooth." },
+                                fontSize = 13.sp,
+                                color = Color(0xFF424242),
+                                textAlign = TextAlign.Start,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(18.dp))
+                            Button(
+                                onClick = {
+                                    showBtFailedDialog = false
+                                    try {
+                                        startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
+                                    } catch (_: Exception) {
+                                        startActivity(Intent(Settings.ACTION_SETTINGS))
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00796B)),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("BUKA PENGATURAN BLUETOOTH HP")
+                            }
+                            if (failedDeviceAddress.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                OutlinedButton(
+                                    onClick = {
+                                        showBtFailedDialog = false
+                                        isConnecting = true
+                                        Thread { connectToDevice(failedDeviceAddress) }.start()
+                                    },
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("COBA HUBUNGKAN LAGI", color = Color(0xFF00796B))
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Button(
+                                onClick = { showBtFailedDialog = false },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                                elevation = null
+                            ) {
+                                Text("TUTUP", color = Color.Gray, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -558,7 +694,7 @@ class MainActivity : ComponentActivity() {
                 Button(
                     onClick = {
                         try {
-                            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("http://192.168.4.1"))
+                            val browserIntent = Intent(Intent.ACTION_VIEW, "http://192.168.4.1".toUri())
                             startActivity(browserIntent)
                         } catch (e: Exception) {
                             Toast.makeText(this@MainActivity, "Gagal membuka browser: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -702,11 +838,11 @@ class MainActivity : ComponentActivity() {
                 intent.putExtra("Address", deviceAddress)
                 startActivity(intent)
             } else {
-                Toast.makeText(
-                    this,
-                    "Koneksi ke Bluetooth gagal. Pastikan modul HC-05/HC-06 menyala dan sudah terpasang (paired).",
-                    Toast.LENGTH_LONG
-                ).show()
+                val errDetail = BluetoothConnectionHolder.lastConnectionError ?: "Tidak ada respon dari modul Bluetooth"
+                android.util.Log.e("MAIN_ACTIVITY", "Koneksi Bluetooth gagal: $errDetail")
+                failedErrorMessage = errDetail
+                failedDeviceAddress = deviceAddress
+                showBtFailedDialog = true
             }
         }
     }

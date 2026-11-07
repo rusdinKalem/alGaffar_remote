@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -37,6 +38,7 @@ import androidx.navigation.NavHostController
 import com.roesch.jwsalgaffar.components.DynamicSelectTextField
 import com.roesch.jwsalgaffar.components.DynamicSelectTextFieldSufix2
 import com.roesch.jwsalgaffar.components.JudulInfo
+import com.roesch.jwsalgaffar.components.SendingProgressDialog
 import com.roesch.jwsalgaffar.components.TextSwitch
 import com.roesch.jwsalgaffar.components.TombolHome
 import com.roesch.jwsalgaffar.components.TombolKirim
@@ -48,6 +50,7 @@ import kotlinx.coroutines.launch
 import android.widget.Toast
 
 import androidx.compose.ui.platform.LocalContext
+import com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder
 import com.roesch.jwsalgaffar.utils.PrefManager
 
 @Composable
@@ -55,6 +58,11 @@ fun Screen08(navController: NavHostController, bluetoothSocket: BluetoothSocket?
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
+
+    var isSending by remember { mutableStateOf(false) }
+    var sendProgress by remember { mutableIntStateOf(0) }
+    var sendTotal by remember { mutableIntStateOf(0) }
+    var currentItemLabel by remember { mutableStateOf("") }
 
     val options1 = listMode()
     val options2 = listWaktuMalam()
@@ -64,24 +72,24 @@ fun Screen08(navController: NavHostController, bluetoothSocket: BluetoothSocket?
     var checked2 by remember { mutableStateOf(PrefManager.getBoolean(context, "s8_sw2", true)) }
     var checked3 by remember { mutableStateOf(PrefManager.getBoolean(context, "s8_sw3", true)) }
     var checked4 by remember { mutableStateOf(PrefManager.getBoolean(context, "s8_sw4", true)) }
-    var sliderPosition by remember { mutableFloatStateOf(PrefManager.getFloat(context, "s8_sl1", 0f)) }
-    var sliderPosition2 by remember { mutableFloatStateOf(PrefManager.getFloat(context, "s8_sl2", 0f)) }
-    var theme by remember { mutableStateOf(PrefManager.getString(context, "s8_theme", "")) }
-    var start by remember { mutableStateOf(PrefManager.getString(context, "s8_start", "")) }
-    var finish by remember { mutableStateOf(PrefManager.getString(context, "s8_finish", "")) }
+    var sliderPosition by remember { mutableFloatStateOf(PrefManager.getFloat(context, "s8_sl1", 0.35f)) }
+    var sliderPosition2 by remember { mutableFloatStateOf(PrefManager.getFloat(context, "s8_sl2", 0.30f)) }
+    var theme by remember { mutableStateOf(PrefManager.getString(context, "s8_theme", "NORMAL")) }
+    var start by remember { mutableStateOf(PrefManager.getString(context, "s8_start", "10")) }
+    var finish by remember { mutableStateOf(PrefManager.getString(context, "s8_finish", "4")) }
 
     val mode = when(theme){
         "NORMAL" ->  1
         "JAM BESAR" ->  2
         "PADAM" ->  3
-        else -> ""
+        else -> 1
     }
 
 
     val kali1 = 255
     val kali2 = 150
-    val dataSlider1 = (sliderPosition * kali1).toInt()
-    val dataSlider2 = (sliderPosition2 * kali2).toInt()
+    val dataSlider1 = (sliderPosition * kali1).toInt().coerceIn(15, 255)
+    val dataSlider2 = (sliderPosition2 * kali2).toInt().coerceIn(10, 150)
 
     val buzzer = when(checked1){
         true -> 1
@@ -99,17 +107,20 @@ fun Screen08(navController: NavHostController, bluetoothSocket: BluetoothSocket?
         true -> 1
         else -> 0
     }
-    val datas = listOf(
+    val datas = mutableListOf(
         "NBZ$buzzer",
         "NSI$imsak",
         "NST$terbit",
         "NSU$dhuha",
         "NBL$dataSlider1",
         "NRT$dataSlider2",
-        "NHS$mode",
-        "NHM$start",
-        "NHH$finish",
-    )
+        "NHS$mode"
+    ).apply {
+        if (theme != "NORMAL" && start.isNotEmpty() && finish.isNotEmpty()) {
+            add("NHM$start")
+            add("NHH$finish")
+        }
+    }
 
 
     Box(
@@ -343,12 +354,37 @@ fun Screen08(navController: NavHostController, bluetoothSocket: BluetoothSocket?
                     modifier = Modifier
                         .clickable(
                             onClick = {
+                                if (isSending) return@clickable
                                 coroutineScope.launch {
-                                    val success = com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder.sendDataList(datas)
+                                    isSending = true
+                                    sendTotal = datas.size
+                                    sendProgress = 0
+
+                                    val success = BluetoothConnectionHolder.sendDataList(
+                                        dataList = datas,
+                                        delayBetweenMs = 800L
+                                    ) { current, total, item ->
+                                        sendProgress = current
+                                        sendTotal = total
+                                        currentItemLabel = when {
+                                            item.startsWith("NBZ") -> "1. Buzzer: ${if (buzzer == 1) "ON" else "OFF"}"
+                                            item.startsWith("NSI") -> "2. Imsak: ${if (imsak == 1) "ON" else "OFF"}"
+                                            item.startsWith("NST") -> "3. Terbit: ${if (terbit == 1) "ON" else "OFF"}"
+                                            item.startsWith("NSU") -> "4. Dhuha: ${if (dhuha == 1) "ON" else "OFF"}"
+                                            item.startsWith("NBL") -> "5. Kecerahan: $dataSlider1"
+                                            item.startsWith("NRT") -> "6. Kecepatan Runtext: $dataSlider2"
+                                            item.startsWith("NHS") -> "7. Mode Malam: $theme"
+                                            item.startsWith("NHM") -> "8. Start Malam: Jam $start"
+                                            item.startsWith("NHH") -> "9. Finish Pagi: Jam $finish"
+                                            else -> item
+                                        }
+                                    }
+
+                                    isSending = false
                                     if (success) {
-                                        Toast.makeText(context, "Data Tools berhasil dikirim!", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Berhasil! ${datas.size} Pengaturan Tools terkirim.", Toast.LENGTH_SHORT).show()
                                     } else {
-                                        Toast.makeText(context, "Gagal mengirim data. Pastikan Bluetooth terhubung!", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Gagal mengirim data. Pastikan koneksi terhubung!", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             }
@@ -363,10 +399,15 @@ fun Screen08(navController: NavHostController, bluetoothSocket: BluetoothSocket?
                 )
                 Spacer(Modifier.height(30.dp))
             }
-
-
-
         }
+
+        SendingProgressDialog(
+            show = isSending,
+            current = sendProgress,
+            total = sendTotal,
+            moduleTitle = "PENGATURAN TOOLS",
+            itemLabel = currentItemLabel
+        )
     }
 }
 

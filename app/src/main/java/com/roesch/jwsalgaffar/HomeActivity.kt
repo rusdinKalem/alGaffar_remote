@@ -44,10 +44,11 @@ import com.roesch.jwsalgaffar.screens.Screen05
 import com.roesch.jwsalgaffar.screens.Screen06
 import com.roesch.jwsalgaffar.screens.Screen07
 import com.roesch.jwsalgaffar.screens.Screen08
+import com.roesch.jwsalgaffar.screens.Screen09
 import com.roesch.jwsalgaffar.screens.ScreenMp3
 import com.roesch.jwsalgaffar.ui.theme.JWSAlGaffarTheme
 import com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder
-import com.roesch.jwsalgaffar.utils.BluetoothHandler
+import com.roesch.jwsalgaffar.utils.ConnectionMode
 
 class HomeActivity : ComponentActivity() {
 
@@ -90,21 +91,19 @@ class HomeActivity : ComponentActivity() {
 
         val mode = intent.getStringExtra("Mode") ?: "BLUETOOTH"
         if (mode == "WIFI") {
-            com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder.connectionMode = com.roesch.jwsalgaffar.utils.ConnectionMode.WIFI
+            BluetoothConnectionHolder.connectionMode = ConnectionMode.WIFI
         } else {
-            com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder.connectionMode = com.roesch.jwsalgaffar.utils.ConnectionMode.BLUETOOTH
+            BluetoothConnectionHolder.connectionMode = ConnectionMode.BLUETOOTH
             val btManager = getSystemService(BluetoothManager::class.java)
             if (btManager != null) {
                 bluetoothAdapter = btManager.adapter
             }
             address = intent.getStringExtra("Address") ?: ""
 
-            val activeSocket = com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder.socket
+            val activeSocket = BluetoothConnectionHolder.socket
             if (activeSocket != null && activeSocket.isConnected) {
                 bluetoothSocket = activeSocket
             } else if (address.isNotEmpty() && ::bluetoothAdapter.isInitialized) {
-                val device = bluetoothAdapter.getRemoteDevice(address)
-                bluetoothSocket = BluetoothConnectionHolder.createSocket(device)
                 Thread {
                     val success = BluetoothConnectionHolder.connect(bluetoothAdapter, address)
                     if (success) {
@@ -141,7 +140,7 @@ class HomeActivity : ComponentActivity() {
             val launchMultiplePermissions =
                 rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestMultiplePermissions()) {
                         permissionMaps ->
-                    val areGranted = permissionMaps.values.reduce{ _, next -> next}
+                    val areGranted = permissionMaps.values.isNotEmpty() && permissionMaps.values.all { it }
                     if(areGranted){
                         locationRequired = true
                         startLocationUpdates()
@@ -210,6 +209,9 @@ fun Nav(modifier: Modifier, bluetoothSocket: BluetoothSocket?, currentLocation: 
         }
         composable(route="08"){
             Screen08(navController, bluetoothSocket)
+        }
+        composable(route="09"){
+            Screen09(navController, bluetoothSocket)
         }
         composable(route="10"){
             ScreenMp3(navController, bluetoothSocket)

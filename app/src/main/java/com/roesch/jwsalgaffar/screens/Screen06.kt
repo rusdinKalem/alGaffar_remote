@@ -30,8 +30,9 @@ import com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import android.widget.Toast
-
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.platform.LocalContext
+import com.roesch.jwsalgaffar.components.SendingProgressDialog
 import com.roesch.jwsalgaffar.utils.PrefManager
 
 @Composable
@@ -43,10 +44,15 @@ fun Screen06(
     val coroutineScope = rememberCoroutineScope()
     val options1 : List<String> = listBilanganBulatPositif()
 
-    var input1 by remember { mutableStateOf(PrefManager.getString(context, "s6_adzan", "")) }
-    var input2 by remember { mutableStateOf(PrefManager.getString(context, "s6_info", "")) }
-    var input3 by remember { mutableStateOf(PrefManager.getString(context, "s6_sholat", "")) }
-    var input4 by remember { mutableStateOf(PrefManager.getString(context, "s6_khutbah", "")) }
+    var isSending by remember { mutableStateOf(false) }
+    var sendProgress by remember { mutableIntStateOf(0) }
+    var sendTotal by remember { mutableIntStateOf(0) }
+    var currentItemLabel by remember { mutableStateOf("") }
+
+    var input1 by remember { mutableStateOf(PrefManager.getString(context, "s6_adzan", "5")) }
+    var input2 by remember { mutableStateOf(PrefManager.getString(context, "s6_info", "12")) }
+    var input3 by remember { mutableStateOf(PrefManager.getString(context, "s6_sholat", "10")) }
+    var input4 by remember { mutableStateOf(PrefManager.getString(context, "s6_khutbah", "30")) }
 
     val datas = listOf(
         "NAD$input1",
@@ -139,12 +145,32 @@ fun Screen06(
                         modifier = Modifier
                             .clickable(
                                 onClick = {
+                                    if (isSending) return@clickable
                                     coroutineScope.launch {
-                                        val success = com.roesch.jwsalgaffar.utils.BluetoothConnectionHolder.sendDataList(datas)
+                                        isSending = true
+                                        sendTotal = datas.size
+                                        sendProgress = 0
+
+                                        val success = BluetoothConnectionHolder.sendDataList(
+                                            dataList = datas,
+                                            delayBetweenMs = 800L
+                                        ) { current, total, item ->
+                                            sendProgress = current
+                                            sendTotal = total
+                                            currentItemLabel = when {
+                                                item.startsWith("NAD") -> "1. Durasi Adzan: $input1 Menit"
+                                                item.startsWith("NIN") -> "2. Durasi Info: $input2 Menit"
+                                                item.startsWith("NSO") -> "3. Durasi Sholat: $input3 Menit"
+                                                item.startsWith("NJM") -> "4. Durasi Khutbah: $input4 Menit"
+                                                else -> item
+                                            }
+                                        }
+
+                                        isSending = false
                                         if (success) {
-                                            Toast.makeText(context, "Data Durasi berhasil dikirim!", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "Berhasil! ${datas.size} Data Durasi terkirim.", Toast.LENGTH_SHORT).show()
                                         } else {
-                                            Toast.makeText(context, "Gagal mengirim data. Pastikan Bluetooth terhubung!", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "Gagal mengirim data. Pastikan koneksi terhubung!", Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 }
@@ -159,6 +185,14 @@ fun Screen06(
                     )
                 }
             }
+
+            SendingProgressDialog(
+                show = isSending,
+                current = sendProgress,
+                total = sendTotal,
+                moduleTitle = "DURASI WAKTU",
+                itemLabel = currentItemLabel
+            )
         }
     }
 }
